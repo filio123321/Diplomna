@@ -1,0 +1,2 @@
+Tova she e python programa + zip file s obfuscateat kod.
+Python file-a shte unzipva, setupva i runva zip file-a
