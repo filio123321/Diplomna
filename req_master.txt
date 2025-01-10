@@ -1,0 +1,26 @@
+aiosqlite==0.20.0
+annotated-types==0.7.0
+anyio==4.7.0
+blinker==1.9.0
+certifi==2024.8.30  # Repeated in the first repository, you can remove if merging
+charset-normalizer==3.4.0  # Repeated
+click==8.1.7
+colorama==0.4.6
+fastapi==0.115.6
+flask==3.1.0
+greenlet==3.1.1
+h11==0.14.0
+idna==3.10  # Repeated
+itsdangerous==2.2.0
+jinja2==3.1.4
+MarkupSafe==3.0.2
+pip==24.0  # Repeated
+pydantic==2.10.3
+pydantic-core==2.27.1
+sniffio==1.3.1
+SQLAlchemy==2.0.36
+starlette==0.41.3
+typing-extensions==4.12.2
+urllib3==2.2.3  # Repeated
+uvicorn==0.32.1
+werkzeug==3.1.3
