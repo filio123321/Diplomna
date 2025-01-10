@@ -10,16 +10,16 @@ LUKS_MAPPER_NAME = "encrypted_root"
 XZ_PATH = "/home/filio/ARDSD/rasp-lite-os.img.xz"
 IMG_PATH = "/home/filio/ARDSD/rasp-lite-os.img"
 ROOT_PARTITION = "/dev/mmcblk0p2"
+BOOT_PARTITION = "/dev/mmcblk0p1"
 NEW_ROOT_SIZE_GB = 10
 LUKS_START_GB = 26
-
 
 def run_cmd(cmd):
     print(f"Running: {cmd}")
     subprocess.check_call(cmd, shell=True)
 
 def ensure_requirements():
-    run_cmd("sudo apt-get update && sudo apt-get install -y cryptsetup parted e2fsprogs curl xz-utils")
+    run_cmd("sudo apt-get update && sudo apt-get install -y cryptsetup parted e2fsprogs curl xz-utils initramfs-tools")
 
 def register_node():
     response = requests.post(f"{SERVER_URL}/register")
@@ -40,12 +40,42 @@ def create_luks_partition():
     run_cmd(f"sudo cryptsetup luksFormat {LUKS_PARTITION}")
     run_cmd(f"sudo cryptsetup luksOpen {LUKS_PARTITION} {LUKS_MAPPER_NAME}")
 
+def setup_cmdline_txt():
+    boot_mount = "/mnt/boot"
+    root_mapper_path = f"/dev/mapper/{LUKS_MAPPER_NAME}"
+    cmdline_txt = f"root={root_mapper_path} rootfstype=ext4 rootwait cryptdevice={LUKS_PARTITION}:{LUKS_MAPPER_NAME}\n"
+    
+    run_cmd(f"sudo mount {BOOT_PARTITION} {boot_mount}")
+    with open(f"{boot_mount}/cmdline.txt", "w") as f:
+        f.write(cmdline_txt)
+    run_cmd(f"sudo umount {boot_mount}")
+
+def install_initramfs_tools():
+    luks_hook_path = "/usr/share/initramfs-tools/hooks/luks"
+    luks_hook_script = """#!/bin/sh
+set -e
+PREREQ="udev"
+prereqs() { echo "$PREREQ"; }
+case "$1" in
+    prereqs) prereqs; exit 0 ;;
+esac
+. /usr/share/initramfs-tools/hook-functions
+copy_exec /sbin/cryptsetup /sbin
+exit 0
+"""
+    with open("/tmp/luks_hook", "w") as f:
+        f.write(luks_hook_script)
+    run_cmd(f"sudo mv /tmp/luks_hook {luks_hook_path} && sudo chmod +x {luks_hook_path}")
+    run_cmd("sudo update-initramfs -u")
+
 def setup_os_image():
     if not os.path.exists(XZ_PATH):
-        run_cmd(f"curl -L -o {XZ_PATH} https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64.img.xz") # Not anymore - raspOS by default has ssh disabled, custom link to pesho ot image-a v initial setup
+        run_cmd(f"curl -L -o {XZ_PATH} https://downloads.raspberrypi.com/raspios_arm64/images/raspios_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64.img.xz")
     if not os.path.exists(IMG_PATH):
         run_cmd(f"xz -d {XZ_PATH}")
     run_cmd(f"sudo dd if={IMG_PATH} of=/dev/mapper/{LUKS_MAPPER_NAME} bs=4M status=progress conv=fsync")
+    setup_cmdline_txt()
+    install_initramfs_tools()
 
 def store_node_info(node_id, secret_token):
     with open("/tmp/node_info.json", "w") as f:
